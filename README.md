@@ -30,6 +30,16 @@
 
 层级如下
 
+```
+package
+├── nexus    --  自定义注解
+├── harbor        --  aop模块
+├── jenkins        --  配置模块
+├── k8s      --  常量模块
+```
+
+
+
 package
 
 --nexus
@@ -119,13 +129,8 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 安装一些必备软件
 
 ```sh
-yum install -y createrepo
-yum install -y yum-utils
-yum install vim lrzsz 
-yum install 
+yum install -y createrepo yum-utils vim lrzsz wget net-tools lsof
 ```
-
-
 
 更新安装包
 
@@ -133,15 +138,19 @@ yum install
 ./update-rpm-download.sh
 ```
 
+[yum更新](#yum更新) 
 
+下载内核更新包并更新内核
 
 ```sh
-#!/bin/bash
-mkdir -p /data/mirrors/update/
-cd /data/mirrors/
-yum update --downloadonly --downloaddir=./update/
-yum install -y createrepo
-tar -zcvf update.tar.gz ./update
+./kernel-update-download.sh
+```
+
+```sh
+# 启动内核
+grub2-set-default 0
+# 重启
+reboot
 ```
 
 
@@ -156,16 +165,15 @@ docker安装包
 #!/bin/bash
 yum install -y yum-utils
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-mkdir -p /data/mirrors/docker/
-yum install --downloadonly --downloaddir=/data/mirrors/docker/ docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-tar -zcvf docker.tar.gz /data/mirrors/docker
+mkdir -p /data/mirrors/extras/
+yum install --downloadonly --downloaddir=/data/mirrors/extras/ docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
 `yumdownloader`
 
-docker 安装
+[docker 安装](#docker 安装) 
 
-harbor安装（下载修改后的harbor.yml）
+[harbor安装](#harbor安装) （下载修改后的harbor.yml）
 
 docker镜像
 
@@ -327,7 +335,32 @@ offline-auto-deploy， 内容，脚本本来)
 
 ## 安装
 
-#### 1.docker 安装
+#### yum更新
+
+```sh
+yum update -y
+```
+
+#### 安装epel源
+
+```sh
+rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+yum install -y https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
+```
+
+
+
+#### 更新内核
+
+```sh
+yum --disablerepo='*' --enablerepo=elrepo-kernel install kernel-lt -y
+grub2-set-default 0
+reboot
+```
+
+
+
+#### docker 安装
 
 ```sh
 ./docker-install.sh
@@ -340,7 +373,7 @@ yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce
 yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-#### 2.harbor安装
+#### harbor安装
 
 ```sh
 tar -zxvf harbor-offline-installer-v2.3.3.tgz
