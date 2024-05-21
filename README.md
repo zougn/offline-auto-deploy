@@ -66,6 +66,8 @@ package
 
 ----harbor.yml
 
+----pull-docker-images.sh
+
 ----harbor.tar.gz
 
 ----harbor.service
@@ -112,10 +114,12 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 
 **下面需要再外网虚拟机上下载**
 
+以下执行脚本前先要添加执行权限chmod + x
+
 更新安装包
 
 ```sh
-update-rpm-download.sh
+./update-rpm-download.sh
 ```
 
 
@@ -135,7 +139,6 @@ docker安装包
 ```
 
 ```sh
-cat docker-rpm-download.sh
 yum install -y yum-utils
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 mkdir -p /data/mirrors/docker/
@@ -153,8 +156,9 @@ docker镜像
 
 在docker-images.txt添加需要的docker镜像，名称和版本号可以在dockerhub获取，这里以  (kafka、nexus3、openjdk8 & 11, elasticsearch、centos、mongo & kibana、seata-server、rabbitmq、mysql、nacos-server、redis、nginx、hello-world、gitlab、jenkins、sonarsqube) 为例
 
+docker-images.txt
+
 ```sh
-cat docker-images.txt
 zookeeper
 kafka
 nexus3
@@ -182,14 +186,12 @@ sonarsqube
 
 ```sh
 docker login http://192.168.1.1:85
-```
-
-```sh
 ./pull-docker-images.sh  192.168.1.1:85
+# data_volume打包
+tar -zcvf harbor.tar.gz /data/harbor
 ```
 
 ```sh
-cat pull-docker-images.sh
 imageFile="./docker-images.txt"
 if[!-f"$imagesFile];then
     images=$(cat docker-images.txt)
@@ -202,17 +204,9 @@ if[!-f"$imagesFile];then
       docker rmi $i
     done
 else 
-  echo "docker-images.txt文件不存在"
+  echo "当前文件夹不存在docker-images.txt文件"
 fi
 
-```
-
-
-
-data_volume打包
-
-```sh
-tar -zcvf harbor.tar.gz /data/harbor
 ```
 
 
@@ -412,7 +406,13 @@ systemctl restart harbor
 1. 本地前端工程已执行npm install且已生成package-lock.json
 2. 依赖下载脚本。下述的NodeJS脚本可以根据前端源码工程下的package-lock.json文件中的每个依赖信息的resolved字段下载该依赖对应的原始tgz压缩包，只有tgz格式的原始依赖包才能被Nexus作为npm依赖管理。将该脚本保存到一个名为downloadNpmPackage.js的文件中：
 
-downloadNpmPackage.js
+#### 下载原始依赖
+
+将NodeJs脚本downloadNpmPackage.js置于前端工程目录下且与package-lock.json文件同级：
+
+```sh
+node downloadNpmPackage.js
+```
 
 ```js
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
@@ -513,21 +513,23 @@ function showProgress (received, total, filePath) {
 doDownload(tgz[currentDownIndex])
 ```
 
+
+
 将npm-dependencies-tgz文件夹打包成rar压缩包
 
 
 
-#### 下载原始依赖
+#### 上传原始依赖
 
-将NodeJs脚本downloadNpmPackage.js置于前端工程目录下且与package-lock.json文件同级：
+1.解压npm-dependencies-tgz.tar压缩包，得到npm-dependencies-tgz目录，将UploadnpmPackage.sh剪切到npm-dependencies-tgz目录下与所有tgz依赖包同级
+
+2.若是linux操作系统，则需要使用如下命令将脚本中的换行符进行转换：
+
+3.在npm-dependencies-tgz目录下使用如下命令运行脚本UploadnpmPackage.sh将依赖包上传到nexus上，注意红字部分根据Nexus的实际情况填写（建议使用Nexus的admin用户）：
 
 ```sh
-node downloadNpmPackage.js
+./uploadNpmPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/repoistory/npm/v1/components?repository=npm-local
 ```
-
-
-
-UploadnpmPackage.sh
 
 ```sh
 #!/bin/bash
@@ -553,22 +555,13 @@ curl -u "$USERNAME:$PASSWORD" -X 'POST' -v \
   -F 'npm.asset=@{};type=application/x-compressed' ;
 ```
 
-1.解压npm-dependencies-tgz.tar压缩包，得到npm-dependencies-tgz目录，将UploadnpmPackage.sh剪切到npm-dependencies-tgz目录下与所有tgz依赖包同级
-
-2.若是linux操作系统，则需要使用如下命令将脚本中的换行符进行转换：
-
-3.在npm-dependencies-tgz目录下使用如下命令运行脚本UploadnpmPackage.sh将依赖包上传到nexus上，注意红字部分根据Nexus的实际情况填写（建议使用Nexus的admin用户）：
-
-```sh
-./UploadnpmPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/repoistory/npm/v1/components?repository=npm-local
-```
-
 
 
 ### Maven上传
 
+mavenimport.sh
+
 ```sh
-cat mavenimport.sh
 #!/bin/bash
 # copy and run this script to the root of the repository directory containing files
 # this script attempts to exclude uploading itself explicitly so the script name is important
@@ -584,8 +577,6 @@ while getopts ":r:u:p:" opt; do
     esac
 done
 find . -type f -not -path './mavenimport\.sh*' -not -path '*/\.*' -not -path '*/\^archetype\-catalog\.xml*' -not -path '*/\^maven\-metadata\-local*\.xml' -not -path '*/\^maven\-metadata\-deployment*\.xml' | sed "s|^\./||" | xargs -I '{}' curl -u "$USERNAME:$PASSWORD" -X PUT -v -T {} ${REPO_URL}{} ;
- 
- 
 ```
 
 ### 
