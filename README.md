@@ -116,6 +116,17 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 
 以下执行脚本前先要添加执行权限chmod + x
 
+安装一些必备软件
+
+```sh
+yum install -y createrepo
+yum install -y yum-utils
+yum install vim lrzsz 
+yum install 
+```
+
+
+
 更新安装包
 
 ```sh
@@ -125,9 +136,12 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 
 
 ```sh
+#!/bin/bash
 mkdir -p /data/mirrors/update/
-yum update --downloadonly --downloaddir=/data/mirrors/update/
-tar -zcvf update.tar.gz /data/mirrors/update
+cd /data/mirrors/
+yum update --downloadonly --downloaddir=./update/
+yum install -y createrepo
+tar -zcvf update.tar.gz ./update
 ```
 
 
@@ -139,6 +153,7 @@ docker安装包
 ```
 
 ```sh
+#!/bin/bash
 yum install -y yum-utils
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 mkdir -p /data/mirrors/docker/
