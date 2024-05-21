@@ -36,9 +36,17 @@ package
 
 ----CentOS-7-x86_64-Everything-2009.iso
 
+----update.tar.gz
+
+----update-rpm-download.sh
+
 ----docker.tar.gz
 
+----docker-rpm-download.sh
+
 ----gitlab.tar.gz
+
+----gitlab-rpm-download.sh
 
 ----UploadRpmPackage.sh
 
@@ -65,6 +73,8 @@ package
 ----uninstall.sh
 
 --jenkins
+
+----jenkins_home.tar.gz
 
 ----nodejs
 
@@ -101,6 +111,22 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 
 
 **下面需要再外网虚拟机上下载**
+
+更新安装包
+
+```sh
+update-rpm-download.sh
+```
+
+
+
+```sh
+mkdir -p /data/mirrors/update/
+yum update --downloadonly --downloaddir=/data/mirrors/update/
+tar -zcvf update.tar.gz /data/mirrors/update
+```
+
+
 
 docker安装包 
 
@@ -242,6 +268,8 @@ tar -zcvf jenkins.tar.gz /data/mirrors/jenkins
 ```
 
 安装jenkins
+
+
 
 下载插件
 
@@ -575,10 +603,38 @@ cat mavenStartUp.sh
 
 ```sh
 yum install -y jenkins
-vi /etc/init.d/jenkins # 修改端口
+# 修改端口
+vi /etc/init.d/jenkins 
+#将JENKINS_USER="jenkins 改为 JENKINS_USER="root"
+vim /etc/sysconfig/jenkins
 systemctl start jenkins 
-
+firewall-cmd --zone=public --add-port=8080/tcp --permanent
+firewall-cmd --reload
+# 查看默认登录密码
+cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
+
+访问jenkins 输入默认登录密码 
+
+安装推荐的插件
+
+出现插件安装不上问题则替换为清华源
+
+```sh
+sed –ri 's#<url>https://updates.jenkins.io/update-center.json</url>#<url>http://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json</url>#' /var/jenkins_home/hudson.model.UpdateCenter.xml
+```
+
+如果存在依赖问题
+
+在https://updates.jenkins.io/download/plugins/源中选择合适的hpi文件，手动添加
+
+额外插件下载
+
+Deploy to container（支持自动化将代码部署到tomcat容器）
+Maven Integration（jenkins 利用maven编译，打包，所需插件）
+Node.js（打包前端vue项目所需插件）
+Gitlab（gitee插件-私有代码仓库）
+Publish Over SSH（ssh传输到另一台服务器）
 
 
 
