@@ -533,7 +533,56 @@ cat /var/lib/jenkins/secrets/initialAdminPassword
 yum install kubeadm kubectl kubelet -y
 ```
 
+#### 搭建k8s集群
 
+```sh
+
+systemctl stop firewalld
+
+cat > /etc/yum.repos.d/kubernetes.repo << EOF
+[kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
+https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+EOF
+
+yum install -y  kubelet kubeadm kubectl
+
+systemctl enable kubelet
+systemctl restart containerd
+
+kubeadm config print init-defaults > init-config.yaml
+kubeadm config images list --config init-config.yaml
+imageRepository: registry.aliyuncs.com/google_containers
+kubeadm config images pull --config=init-config.yaml
+
+kubeadm init --apiserver-advertise-address=192.168.109.132 --apiserver-bind-port=6443 --pod-network-cidr=10.244.0.0/16  --service-cidr=10.96.0.0/12 --kubernetes-version=1.28.0 --image-repository registry.aliyuncs.com/google_containers
+
+wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+kubectl apply -f kube-flannel.yml
+
+
+
+
+
+journalctl -xefu kubelet
+kubectl get ns
+kubectl get node
+
+
+
+cat <<EOF >> /root/.bashrc
+
+export KUBECONFIG=/etc/kubernetes/admin.conf
+
+EOF
+
+source /root/.bashrc
+```
 
 
 
@@ -542,8 +591,8 @@ yum install kubeadm kubectl kubelet -y
 卸载k8s
 
 ```sh
-sudo kubeadm reset -f
 yum -y remove kubelet kubeadm kubectl
+sudo kubeadm reset -f
 sudo rm -rvf $HOME/.kube
 sudo rm -rvf ~/.kube/
 sudo rm -rvf /etc/kubernetes/
