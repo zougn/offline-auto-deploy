@@ -24,79 +24,42 @@
 
 ​	k8s自动化部署
 
-## 3.外网准备
+## 外网准备
 
 在所有步骤开始前，需要在外网下载好所有需要的软件包
+
+*前提：内网已有包含git在内的java前后端基础开发环境，如无请添加进下面的软件包*
 
 层级如下
 
 ```
 package
-├── nexus    --  自定义注解
-├── harbor        --  aop模块
-├── jenkins        --  配置模块
-├── k8s      --  常量模块
+├── nexus    
+├──────CentOS-7-x86_64-Everything-2009.iso   --	 centos-yum源
+├──────update.tar.gz						 --  update-yum源
+├──────extras.tar.gz						 --  extras-yum源
+├──────npm-dependencies-tgz.rar				 --  npm包
+├──────downloadNpmPackage.js 				 --  npm包下载脚本
+├──────UploadNpmPackage.sh					 --  npm包上传脚本
+├──────UploadRpmPackage.sh					 --  rpm包上传脚本
+├──────UploadMavenPackage.sh				 --  maven包上传脚本
+├──────startup.sh 							 --  上传脚本启动器
+├──────nginx-1.25.5.zip						 --  nginx-win版
+├──────node-v14.21.3-linux-x64.tar.xz		 --  node安装包
+├──────harbor-offline-installer-v2.9.4.tgz 	 --	 harbor安装包
+├── harbor        
+├──────harbor.yml							 --  harbor配置文件
+├──────docker-images.txt					 --  docker镜像信息
+├──────pull-docker-images.sh				 --  docker镜像脚本
+├──────harbor.tar.gz						 --  harbor数据卷
+├──────harbor.service						 --  harbor启动项
+├──────uninstall.sh							 --  harbor卸载脚本
+├── jenkins        
+├──────jenkins_home.tar.gz					 --  jenkins数据卷
+├── k8s      
 ```
 
 
-
-package
-
---nexus
-
-----CentOS-7-x86_64-Everything-2009.iso
-
-----update.tar.gz
-
-----update-rpm-download.sh
-
-----docker.tar.gz
-
-----docker-rpm-download.sh
-
-----gitlab.tar.gz
-
-----gitlab-rpm-download.sh
-
-----UploadRpmPackage.sh
-
-----UploadMavenPackage.sh
-
-----npm-dependencies-tgz.rar
-
-----UploadNpmPackage.sh
-
-----startup.sh
-
-----nginx-1.25.5.zip
-
---harbor
-
-----harbor-offline-installer-v2.9.4.tgz
-
-----harbor.yml
-
-----pull-docker-images.sh
-
-----harbor.tar.gz
-
-----harbor.service
-
-----uninstall.sh
-
---jenkins
-
-----jenkins_home.tar.gz
-
-----nodejs
-
---------node-v14.21.3-linux-x64.tar.xz
-
-
-
-
-
-sh脚本 放仓库
 
 CentOS镜像everything版 	http://mirror-hk.koddos.net/centos/
 
@@ -126,16 +89,26 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 
 以下执行脚本前先要添加执行权限chmod + x
 
-安装一些必备软件
+以下rpm包下载可替换为`yumdownloader`方式
 
 ```sh
-yum install -y createrepo yum-utils vim lrzsz wget net-tools lsof
+mkdir -p /data/mirrors/update/
+mkdir -p /data/mirrors/extras/
+cd /data/mirrors/
 ```
+
+下载一些必备软件
+
+```sh
+yum install -y --downloadonly --downloaddir=./update/ createrepo yum-utils vim lrzsz wget net-tools lsof tree bash-completion psmisc 
+```
+
+[安装一些必备软件](#安装一些必备软件) 
 
 更新安装包
 
 ```sh
-./update-rpm-download.sh
+yum update --downloadonly --downloaddir=./update/
 ```
 
 [yum更新](#yum更新) 
@@ -143,33 +116,20 @@ yum install -y createrepo yum-utils vim lrzsz wget net-tools lsof
 下载内核更新包并更新内核
 
 ```sh
-./kernel-update-download.sh
+rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+yum install -y https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
+yum --disablerepo='*' --enablerepo=elrepo-kernel --downloadonly --downloaddir=./update/ install -y kernel-lt 
+yum --disablerepo='*' --enablerepo=elrepo-kernel install kernel-lt -y
 ```
 
-```sh
-# 启动内核
-grub2-set-default 0
-# 重启
-reboot
-```
-
-
+[启用内核](#启用内核) 
 
 docker安装包 
 
 ```sh
-./docker-rpm-download.sh
-```
-
-```sh
-#!/bin/bash
-yum install -y yum-utils
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-mkdir -p /data/mirrors/extras/
-yum install --downloadonly --downloaddir=/data/mirrors/extras/ docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+yum install --downloadonly --downloaddir=./extras/ docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
-
-`yumdownloader`
 
 [docker 安装](#docker 安装) 
 
@@ -177,31 +137,7 @@ yum install --downloadonly --downloaddir=/data/mirrors/extras/ docker-ce docker-
 
 docker镜像
 
-在docker-images.txt添加需要的docker镜像，名称和版本号可以在dockerhub获取，这里以  (kafka、nexus3、openjdk8 & 11, elasticsearch、centos、mongo & kibana、seata-server、rabbitmq、mysql、nacos-server、redis、nginx、hello-world、gitlab、jenkins、sonarsqube) 为例
-
-docker-images.txt
-
-```sh
-zookeeper
-kafka
-nexus3
-openjdk8 
-openjdk11
-elasticsearch
-centos7
-mongo
-kibana
-seata-server
-rabbitmq
-mysql
-nacos-server
-redis
-nginx
-hello-world
-gitlab
-jenkins
-sonarsqube
-```
+在docker-images.txt添加需要的docker镜像，名称和版本号可以在dockerhub查找获取，这里以  (kafka、nexus3、openjdk8 & 11, elasticsearch、centos、mongo & kibana、seata-server、rabbitmq、mysql、nacos-server、redis、nginx、hello-world、gitlab、jenkins、sonarsqube) 为例
 
 
 
@@ -214,47 +150,21 @@ docker login http://192.168.1.1:85
 tar -zcvf harbor.tar.gz /data/harbor
 ```
 
-```sh
-imageFile="./docker-images.txt"
-if[!-f"$imagesFile];then
-    images=$(cat docker-images.txt)
-    for i in ${images}
-    do
-      docker pull $i
-      docker tag $i $1/$i
-      docker push $1/$i
-      docker rmi $1/$i
-      docker rmi $i
-    done
-else 
-  echo "当前文件夹不存在docker-images.txt文件"
-fi
-
-```
-
 
 
 前端依赖包(脚手架)
 
-本地前端vue新建工程(可以考虑vue2、vue3、和vite构建)执行npm i
+本地前端vue工程(可以考虑vue2、vue3、和vite构建)执行
 
 ```sh
-npm i vue
-npm i vue-cli
-npm i @vue/cli
-npm i webpack
-npm i webpack-cli
-npm i vite
-npm i create-vue
+npm i vue vue-cli @vue/cli webpack webpack-cli vite create-vue
 ```
 
-打包npm-dependencies-tgz
+[下载原始依赖](#下载原始依赖) 
 
 
 
 gitlab安装包(可选)
-
-gitlab-rpm-download.sh
 
 ```sh
 cat > /etc/yum.repos.d/gitlab-ce.repo <<EOF
@@ -265,75 +175,190 @@ gpgcheck=0
 enabled=1
 EOF
 yum clean all && yum makecache
-mkdir -p /data/mirrors/gitlab/
-yum install --downloadonly --downloaddir=/data/mirrors/gitlab/ gitlab-ce
-tar -zcvf gitlab.tar.gz /data/mirrors/gitlab
+yum install --downloadonly --downloaddir=./extras/ gitlab-ce
 ```
 
 
 
 jenkins安装包(推荐，docker测试比较慢，可能docker兼容性不好)
 
-jenkins-rpm-download.sh
-
 ```sh
-mkdir -p /data/mirrors/jenkins/
 yum-config-manager --add-repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
 rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-yum install --downloadonly --downloaddir=/data/mirrors/jenkins/ jenkins
-tar -zcvf jenkins.tar.gz /data/mirrors/jenkins
+yum install --downloadonly --downloaddir=./extras/ jenkins
 ```
 
-安装jenkins
+[安装jenkins](#安装jenkins) 
+
+访问jenkins 输入默认登录密码 
+
+安装推荐的插件
+
+出现插件安装不上问题则替换为清华源
+
+```sh
+sed –ri 's#<url>https://updates.jenkins.io/update-center.json</url>#<url>http://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json</url>#' /var/jenkins_home/hudson.model.UpdateCenter.xml
+```
+
+如果存在依赖问题
+
+在https://updates.jenkins.io/download/plugins/源中选择合适的hpi文件，手动添加
+
+额外插件下载
+
+Deploy to container（支持自动化将代码部署到tomcat容器）
+Maven Integration（jenkins 利用maven编译，打包，所需插件）
+Node.js（打包前端vue项目所需插件）
+Gitlab（gitee插件-私有代码仓库）
+Publish Over SSH（ssh传输到另一台服务器）
 
 
-
-下载插件
 
 workingDiretory打包
 
+```sh
+tar -zcvf jenkins.tar.gz /data/jenkins
+```
 
+
+
+k8s安装包
+
+```sh
+cat > /etc/yum.repos.d/kubernetes.repo << EOF
+[kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg 
+https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+EOF
+yum install --downloadonly --downloaddir=./extras/ kubeadm kubectl kubelet -y
+```
 
 k8s镜像
 
+```sh
+kubeadm config print init-defaults > init-config.yaml
+./pull-k8s-images.sh 192.168.1.1:85
+```
 
 
-## 内外部署
+
+下载kube-flannel.yml
+
+```sh
+wget -o https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+```
+
+
+
+flannel镜像
+
+```sh
+./pull-flannel-images.sh
+```
+
+
+
+```sh
+create -pdo ./update/ ./update/
+createrepo --update ./update/
+create -pdo ./extras/ ./extras/
+createrepo --update ./extras/
+tar -zcvf update.tar.gz ./update/
+tar -zcvf extras.tar.gz ./extras/
+```
+
+
+
+## 内网部署
 
 ### 仓库服务器
 
-连接服务器(finalshell)
+连接服务器(xshell)
 
 启动nginx win
 
+```sh
+nginx start
+```
+
+[yum更新](#yum更新) 
+
 更新内核
+
+```sh
+yum install kernel-lt -y
+```
+
+[启用内核](#启用内核) 
 
 安装docker
 安装harbor(报错需要修改data_volume下的权限所有者)
 
-安装 jdk8 jdk11 
-
-搭建nexus 上传rpm 
-yum update -y
-
-yum install vim lrzsz -y
-安装 maven nodejs
-搭建nexus上传maven npm 
+搭建nexus 上传rpm 、maven、 npm 
 
 ### 项目服务器
 
-搭建jenkins
-测试自动化前段后端部署
-搭建k8s集群
-自动化部署
-搭建rancher
+[yum更新](#yum更新) 
 
-(github
-offline-auto-deploy， 内容，脚本本来)
+更新内核
+
+```sh
+yum install kernel-lt -y
+```
+
+禁用Swap分区
+
+```sh
+sed -i 's/.*swap.*/#&/' /etc/fstab
+```
+
+禁用SELinux
+
+```sh
+sed -i  '/^SELINUX=/ c  SELINUX=disabled' /etc/selinux/config
+```
+
+[启用内核](#启用内核) 
+
+安装docker
+
+搭建gitlab
+
+安装 jdk8 jdk11 
+
+安装 maven nodejs
+
+搭建jenkins
+
+测试自动化前段后端部署
+搭建k8s集群 自动化部署
+
+```sh
+kubeadm config print init-defaults > init-config.yaml
+vi init-config.yaml # 修改仓库
+kubeadm config images pull --config=init-config.yaml
+```
+
+
+
+搭建rancher 自动化部署
 
 
 
 ## 安装
+
+#### 安装一些必备软件
+
+```sh
+yum install -y  createrepo yum-utils vim lrzsz wget net-tools lsof tree bash-completion psmisc 
+```
+
+
 
 #### yum更新
 
@@ -350,11 +375,11 @@ yum install -y https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
 
 
 
-#### 更新内核
+#### 启用内核
 
 ```sh
-yum --disablerepo='*' --enablerepo=elrepo-kernel install kernel-lt -y
 grub2-set-default 0
+# 重启
 reboot
 ```
 
@@ -449,12 +474,12 @@ systemctl restart harbor
 
 
 
-### 前端依赖包(脚手架)原始依赖包下载
+#### npm下载上传
 
 1. 本地前端工程已执行npm install且已生成package-lock.json
-2. 依赖下载脚本。下述的NodeJS脚本可以根据前端源码工程下的package-lock.json文件中的每个依赖信息的resolved字段下载该依赖对应的原始tgz压缩包，只有tgz格式的原始依赖包才能被Nexus作为npm依赖管理。将该脚本保存到一个名为downloadNpmPackage.js的文件中：
+2. 依赖下载脚本。下述的NodeJS脚本可以根据前端源码工程下的package-lock.json文件中的每个依赖信息的resolved字段下载该依赖对应的原始tgz压缩包，只有tgz格式的原始依赖包才能被Nexus作为npm依赖管理。
 
-#### 下载原始依赖
+##### 下载原始依赖
 
 将NodeJs脚本downloadNpmPackage.js置于前端工程目录下且与package-lock.json文件同级：
 
@@ -462,181 +487,31 @@ systemctl restart harbor
 node downloadNpmPackage.js
 ```
 
-```js
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-const fs = require('fs')
-const path = require('path')
-const request = require('request')
-// 指定根据package-lock.json中记录的信息下载依赖
-const packageLock = require('./package-lock.json')
-// 指定将依赖下载到当前目录下的npm-dependencies-tgz目录
-const downUrl = './npm-dependencies-tgz'
- 
-if (!fs.existsSync(downUrl)) {
-  fs.mkdirSync(downUrl)
-}
- 
-// 收集依赖的下载路径
-const tgz = []
-// 当前下载索引
-let currentDownIndex = 0
-// 下载失败时，重试次数
-const retryTimes = 3
-// 当前重试计数
-let currentTryTime = 0
- 
-// 重试次数内仍旧下载失败的链接
-const downloadFailTgz = []
- 
-for (const pkg in packageLock.packages) {
-  if (!packageLock.packages[pkg].resolved) continue
-  const tgzUrl = packageLock.packages[pkg].resolved.split('?')[0]
-  tgz.push(tgzUrl)
-}
-// 下载依赖
-function doDownload (url) {
-  const outUrl = url.split('/').pop()
-  let outUrl2 = [outUrl]
-  if (outUrl.indexOf('?') !== -1) {
-    outUrl2 = outUrl.split('?')
-  }
-  const outputDir = path.join(downUrl, outUrl2[0])
-  let receivedBytes = 0
-  let totalBytes = 0
-  const req = request({
-    method: 'GET',
-    uri: url,
-    timeout: 60000
-  })
-  req.on('response', function (data) {
-    totalBytes = parseInt(data.headers['content-length'])
-  })
-  req.on('data', function (chunk) {
-    receivedBytes += chunk.length
-    showProgress(receivedBytes, totalBytes, outUrl2[0])
-    // 当前文件下载完成
-    if (receivedBytes >= totalBytes) {
-      currentDownIndex++
-      currentTryTime = 0
-      if (currentDownIndex < tgz.length) {
-        doDownload(tgz[currentDownIndex])
-      } else {
-        if (downloadFailTgz.length === 0) {
-          console.log('【完成】所有依赖均下载成功！')
-        } else {
-          console.warn('【完成】初步处理完成，但部分依赖多次重试后仍旧下载失败，请手动下载：', downloadFailTgz)
-        }
-      }
-    }
-  })
-  req.on('error', e => {
-    console.log(`第${currentDownIndex + 1}/${tgz.length}个依赖${outUrl2[0]}下载失败：`, JSON.stringify(e))
-    if (currentTryTime < retryTimes) {
-      currentTryTime++
-      console.log(`【第${currentTryTime}次】尝试重新下载第${currentDownIndex + 1}/${tgz.length}个依赖${outUrl2[0]}`)
-      doDownload(tgz[currentDownIndex])
-    } else {
-      // 存入下载失败数组中
-      downloadFailTgz.push(tgz[currentDownIndex])
-      currentDownIndex++
-      currentTryTime = 0
-      if (currentDownIndex < tgz.length) {
-        doDownload(tgz[currentDownIndex])
-      }
-    }
-  })
-  req.pipe(fs.createWriteStream(outputDir))
-}
- 
-// 依赖下载进度显示
-function showProgress (received, total, filePath) {
-  const percentage = ((received * 100) / total).toFixed(2)
-  process.stdout.write(`${filePath} 下载进度：${percentage}% (${received}/${total} 字节)\r`)
-  if (received === total) {
-    console.log(`\n第${currentDownIndex + 1}/${tgz.length}个依赖${filePath} 下载完成！`)
-  }
-}
- 
-// 串行下载
-doDownload(tgz[currentDownIndex])
-```
-
-
-
 将npm-dependencies-tgz文件夹打包成rar压缩包
 
+##### 上传原始依赖
 
-
-#### 上传原始依赖
-
-1.解压npm-dependencies-tgz.tar压缩包，得到npm-dependencies-tgz目录，将UploadnpmPackage.sh剪切到npm-dependencies-tgz目录下与所有tgz依赖包同级
+1.解压npm-dependencies-tgz.tar压缩包，将UploadnpmPackage.sh剪切到npm-dependencies-tgz目录下与所有tgz依赖包同级
 
 2.若是linux操作系统，则需要使用如下命令将脚本中的换行符进行转换：
 
-3.在npm-dependencies-tgz目录下使用如下命令运行脚本UploadnpmPackage.sh将依赖包上传到nexus上，注意红字部分根据Nexus的实际情况填写（建议使用Nexus的admin用户）：
+3.在npm-dependencies-tgz目录下使用如下命令运行脚本UploadnpmPackage.sh将依赖包上传到nexus上（建议使用Nexus的admin用户）：
 
 ```sh
 ./uploadNpmPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/repoistory/npm/v1/components?repository=npm-local
 ```
 
-```sh
-#!/bin/bash
- 
-# 获取命令行参数
-while getopts ":r:u:p:" opt; do
-    case $opt in
-        r) REPO_URL="$OPTARG"
-        ;;
-        u) USERNAME="$OPTARG"
-        ;;
-        p) PASSWORD="$OPTARG"
-        ;;
-    esac
-done
- 
-# find 并批量上传
-find . -type f -name '*.tgz'  | sed "s|^\./||" | xargs -I '{}' \
-curl -u "$USERNAME:$PASSWORD" -X 'POST' -v \
-  ${REPO_URL} \
-  -H 'accept: application/json' \
-  -H 'Content-Type: multipart/form-data' \
-  -F 'npm.asset=@{};type=application/x-compressed' ;
-```
 
 
-
-### Maven上传
-
-mavenimport.sh
+#### Maven上传
 
 ```sh
-#!/bin/bash
-# copy and run this script to the root of the repository directory containing files
-# this script attempts to exclude uploading itself explicitly so the script name is important
-# Get command line params
-while getopts ":r:u:p:" opt; do
-    case $opt in
-        r) REPO_URL="$OPTARG"
-        ;;
-        u) USERNAME="$OPTARG"
-        ;;
-        p) PASSWORD="$OPTARG"
-        ;;
-    esac
-done
-find . -type f -not -path './mavenimport\.sh*' -not -path '*/\.*' -not -path '*/\^archetype\-catalog\.xml*' -not -path '*/\^maven\-metadata\-local*\.xml' -not -path '*/\^maven\-metadata\-deployment*\.xml' | sed "s|^\./||" | xargs -I '{}' curl -u "$USERNAME:$PASSWORD" -X PUT -v -T {} ${REPO_URL}{} ;
-```
-
-### 
-
-```sh
-cat mavenStartUp.sh
 ./mavenimport.sh -u admin -p 123456 -r http://192.168.1.1:85/repository/maven/
 ```
 
 
 
-### 安装jenkins
+#### 安装jenkins
 
 前提安装好jdk11
 
@@ -644,7 +519,7 @@ cat mavenStartUp.sh
 yum install -y jenkins
 # 修改端口
 vi /etc/init.d/jenkins 
-#将JENKINS_USER="jenkins 改为 JENKINS_USER="root"
+#将JENKINS_USER="jenkins 改为 JENKINS_USER="root" 修改数据卷为/data/jenkins
 vim /etc/sysconfig/jenkins
 systemctl start jenkins 
 firewall-cmd --zone=public --add-port=8080/tcp --permanent
@@ -653,37 +528,42 @@ firewall-cmd --reload
 cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
 
-访问jenkins 输入默认登录密码 
+#### 安装插件
 
-安装推荐的插件
 
-出现插件安装不上问题则替换为清华源
+
+
+
+#### 安装nuexs3
+
+#### 安装k8s
 
 ```sh
-sed –ri 's#<url>https://updates.jenkins.io/update-center.json</url>#<url>http://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json</url>#' /var/jenkins_home/hudson.model.UpdateCenter.xml
+yum install kubeadm kubectl kubelet -y
 ```
 
-如果存在依赖问题
-
-在https://updates.jenkins.io/download/plugins/源中选择合适的hpi文件，手动添加
-
-额外插件下载
-
-Deploy to container（支持自动化将代码部署到tomcat容器）
-Maven Integration（jenkins 利用maven编译，打包，所需插件）
-Node.js（打包前端vue项目所需插件）
-Gitlab（gitee插件-私有代码仓库）
-Publish Over SSH（ssh传输到另一台服务器）
-
-
-
-### 安装nuexs3
 
 
 
 
 
 
+卸载k8s
+
+```sh
+sudo kubeadm reset -f
+yum -y remove kubelet kubeadm kubectl
+sudo rm -rvf $HOME/.kube
+sudo rm -rvf ~/.kube/
+sudo rm -rvf /etc/kubernetes/
+sudo rm -rvf /etc/systemd/system/kubelet.service.d
+sudo rm -rvf /etc/systemd/system/kubelet.service
+sudo rm -rvf /usr/bin/kube*
+sudo rm -rvf /etc/cni
+sudo rm -rvf /opt/cni
+sudo rm -rvf /var/lib/etcd
+sudo rm -rvf /var/etcd
+```
 
 
 
