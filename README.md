@@ -35,27 +35,27 @@
 ```
 package
 ├── nexus    
-├──────CentOS-7-x86_64-Everything-2009.iso   --	 centos-yum源
-├──────update.tar.gz						 --  update-yum源
-├──────extras.tar.gz						 --  extras-yum源
-├──────npm-dependencies-tgz.rar				 --  npm包
-├──────downloadNpmPackage.js 				 --  npm包下载脚本
-├──────UploadNpmPackage.sh					 --  npm包上传脚本
-├──────UploadRpmPackage.sh					 --  rpm包上传脚本
-├──────UploadMavenPackage.sh				 --  maven包上传脚本
-├──────startup.sh 							 --  上传脚本启动器
-├──────nginx-1.25.5.zip						 --  nginx-win版
-├──────node-v14.21.3-linux-x64.tar.xz		 --  node安装包
-├──────harbor-offline-installer-v2.9.4.tgz 	 --	 harbor安装包
+├──────CentOS-7-x86_64-Everything-2009.iso  	 --	 centos-yum源
+├──────update.tar.gz							 --  update-yum源
+├──────extras.tar.gz							 --  extras-yum源
+├──────npm-dependencies-tgz.rar					 --  npm包
+├──────downloadNpmPackage.js 					 --  npm包下载脚本
+├──────UploadNpmPackage.sh						 --  npm包上传脚本
+├──────UploadRpmPackage.sh						 --  rpm包上传脚本
+├──────UploadMavenPackage.sh					 --  maven包上传脚本
+├──────startup.sh 								 --  上传脚本启动器
+├──────nginx-1.25.5.zip							 --  nginx-win版
+├──────node-v14.21.3-linux-x64.tar.xz			 --  node安装包
+├──────harbor-offline-installer-v2.11.0-rc1.tgz  --	 harbor安装包
 ├── harbor        
-├──────harbor.yml							 --  harbor配置文件
-├──────docker-images.txt					 --  docker镜像信息
-├──────pull-docker-images.sh				 --  docker镜像脚本
-├──────harbor.tar.gz						 --  harbor数据卷
-├──────harbor.service						 --  harbor启动项
-├──────uninstall.sh							 --  harbor卸载脚本
+├──────harbor.yml								 --  harbor配置文件
+├──────docker-images.txt						 --  docker镜像信息
+├──────pull-docker-images.sh					 --  docker镜像脚本
+├──────harbor.tar.gz							 --  harbor数据卷
+├──────harbor.service							 --  harbor启动项
+├──────uninstall.sh								 --  harbor卸载脚本
 ├── jenkins        
-├──────jenkins_home.tar.gz					 --  jenkins数据卷
+├──────jenkins_home.tar.gz					 	--  jenkins数据卷
 ├── k8s      
 ```
 
@@ -127,6 +127,7 @@ yum --disablerepo='*' --enablerepo=elrepo-kernel install kernel-lt -y
 docker安装包 
 
 ```sh
+cd /data/mirrors/
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum install --downloadonly --downloaddir=./extras/ docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
@@ -138,6 +139,16 @@ yum install --downloadonly --downloaddir=./extras/ docker-ce docker-ce-cli conta
 docker镜像
 
 在docker-images.txt添加需要的docker镜像，名称和版本号可以在dockerhub查找获取，这里以  (kafka、nexus3、openjdk8 & 11, elasticsearch、centos、mongo & kibana、seata-server、rabbitmq、mysql、nacos-server、redis、nginx、hello-world、gitlab、jenkins、sonarsqube) 为例
+
+```sh
+cat > /etc/docker/daemon.json <<EOF
+{
+	"insecure-registries": ["192.168.1.1:85"]
+}
+EOF
+systemctl daemon-reload
+systemctl restart docker
+```
 
 
 
@@ -388,23 +399,18 @@ reboot
 #### docker 安装
 
 ```sh
-./docker-install.sh
-```
-
-```sh
-cat docker-install.sh
-yum install -y yum-utils
-yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable docker
+systemctl start docker
 ```
 
 #### harbor安装
 
 ```sh
-tar -zxvf harbor-offline-installer-v2.3.3.tgz
+tar -zxvf harbor-offline-installer-v2.11.0-rc1.tgz
 cd harbor/
 cp harbor.yml.tmpl harbor.yml
-#编辑harbor的配置文件
+#编辑harbor的配置文件 
 vim harbor.yml
 ```
 
@@ -429,6 +435,14 @@ data_volume: /data/harbor/data #修改harbor存储位置
 ./install.sh
 ```
 
+自启动
+
+```sh
+mv harbor.service /etc/systemd/system/
+systemctl enable harbor
+systemctl restart harbor
+```
+
 
 
 卸载
@@ -438,38 +452,15 @@ data_volume: /data/harbor/data #修改harbor存储位置
 ```
 
 ```sh
-$ rm -rf `find / -name harbor`
+#!/bin/bash
 # 将运行的容器全部停止
-$ docker stop `docker ps - q`
+systemctl stop harbor
 # 将容器全部删除
-$ docker rm `docker ps -qa`
+docker rm `docker ps | grep goharbor | awk '{ print $1 }'`
 # 将镜像全部删除
-$ docker rmi `docker images -q`
-```
-
-自启动
-
-```sh
-cat /etc/systemd/system/harbor.service
-[Unit]
-Description=Harbor
-After=docker.service systemd-networkd.service systemd-resolved.service
-Requires=docker.service
-Documentation=http://github.com/vmware/harbor
-[Service]
-Type=simple
-Restart=on-failure
-RestartSec=5
-#需要注意harbor的安装位置
-ExecStart=/usr/local/bin/docker-compose --file /data/server/harbor/docker-compose.yml up
-ExecStop=/usr/local/bin/docker-compose --file /data/server/harbor/docker-compose.yml down
-[Install]
-WantedBy=multi-user.target
-
-# 重启
-systemctl daemon-reload
-systemctl enable harbor.service
-systemctl restart harbor
+docker rmi `docker images | grep goharbor | awk '{ print $3 }'`
+# 将harbor文件全部删除
+rm -rf `find / -name harbor`
 ```
 
 
