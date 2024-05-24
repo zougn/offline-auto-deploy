@@ -310,7 +310,11 @@ yum install kernel-lt -y
 安装docker
 安装harbor(报错需要修改data_volume下的权限所有者)
 
-搭建nexus 上传rpm 、maven、 npm 
+[搭建nexus3](#搭建nexus3) 
+
+[上传rpm](#上传原始依赖) 
+
+ 、[maven](#Maven上传) 、[ npm](#上传原始依赖)  
 
 ### 项目服务器
 
@@ -352,7 +356,15 @@ yum install openjdk8 -y
 
 安装nodejs
 
+
+
 搭建jenkins
+
+将jenkins.tar.gz 解压至 /data/jenkins
+
+[安装jenkins](#安装jenkins) 
+
+
 
 测试自动化前段后端部署
 搭建k8s集群 自动化部署
@@ -394,7 +406,7 @@ yum install -y https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
 
 
 
-#### 启用内核
+#### 搭建nexus3启用内核
 
 ```sh
 grub2-set-default 0
@@ -473,6 +485,23 @@ rm -rf `find / -name harbor`
 
 
 
+
+
+
+
+#### 安装nuexs3
+
+```sh
+docker pull sonatype/nexus3
+mkdir -p /data/nexus/data
+chmod 777 -R /data/nexus/data
+docker run -d --name nexus3 -p 85:85 --restart always -v /data/nexus/data:/nexus-data sonatype/nexus3
+firewall-cmd --zone=public --add-port=85/tcp --permanent && firewall-cmd --reload
+cat /data/nexus/data/admin.password
+```
+
+
+
 #### npm下载上传
 
 1. 本地前端工程已执行npm install且已生成package-lock.json
@@ -497,7 +526,7 @@ node downloadNpmPackage.js
 3.在npm-dependencies-tgz目录下使用如下命令运行脚本UploadnpmPackage.sh将依赖包上传到nexus上（建议使用Nexus的admin用户）：
 
 ```sh
-./uploadNpmPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/repoistory/npm/v1/components?repository=npm-local
+./uploadNpmPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/service/rest/v1/components?repository=npm
 ```
 
 
@@ -505,10 +534,20 @@ node downloadNpmPackage.js
 #### Maven上传
 
 ```sh
-./mavenimport.sh -u admin -p 123456 -r http://192.168.1.1:85/repository/maven/
+./uploadMvnPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/repository/maven/
 ```
 
+#### rpm上传
+
+```sh
+./uploadRpmPackage.sh -u admin -p 123456 -r http://192.168.1.1:85/service/rest/v1/components?repository=rpm
+```
+
+
+
 #### 安装nodejs
+
+解压nodejs
 
 ```sh
 ```
@@ -523,24 +562,20 @@ node downloadNpmPackage.js
 
 ```sh
 yum install -y jenkins
-# 修改端口
+# 修改端口 以8091为例
 vi /etc/init.d/jenkins 
 #将JENKINS_USER="jenkins 改为 JENKINS_USER="root" 修改数据卷为/data/jenkins
 vim /etc/sysconfig/jenkins
 systemctl start jenkins 
-firewall-cmd --zone=public --add-port=8080/tcp --permanent
-firewall-cmd --reload
+firewall-cmd --zone=public --add-port=8091/tcp --permanent && firewall-cmd --reload  
+
 # 查看默认登录密码
 cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
 
-#### 安装插件
 
 
 
-
-
-#### 安装nuexs3
 
 #### 安装k8s
 
