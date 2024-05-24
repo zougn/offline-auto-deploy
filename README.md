@@ -85,6 +85,18 @@ node安装包 https://nodejs.org/en/download/prebuilt-binaries
 
 
 
+前端依赖包(脚手架)
+
+本地前端vue工程(可以考虑vue2、vue3、和vite构建)执行
+
+```sh
+npm i vue vue-cli @vue/cli webpack webpack-cli vite create-vue
+```
+
+[下载原始依赖](#下载原始依赖) 
+
+
+
 **下面需要再外网虚拟机上下载**
 
 以下执行脚本前先要添加执行权限chmod + x
@@ -160,18 +172,6 @@ docker login http://192.168.1.1:85
 # data_volume打包
 tar -zcvf harbor.tar.gz /data/harbor
 ```
-
-
-
-前端依赖包(脚手架)
-
-本地前端vue工程(可以考虑vue2、vue3、和vite构建)执行
-
-```sh
-npm i vue vue-cli @vue/cli webpack webpack-cli vite create-vue
-```
-
-[下载原始依赖](#下载原始依赖) 
 
 
 
@@ -275,9 +275,9 @@ flannel镜像
 
 
 ```sh
-create -pdo ./update/ ./update/
+createrepo -pdo ./update/ ./update/
 createrepo --update ./update/
-create -pdo ./extras/ ./extras/
+createrepo -pdo ./extras/ ./extras/
 createrepo --update ./extras/
 tar -zcvf update.tar.gz ./update/
 tar -zcvf extras.tar.gz ./extras/
@@ -342,7 +342,15 @@ sed -i  '/^SELINUX=/ c  SELINUX=disabled' /etc/selinux/config
 
 安装 jdk8 jdk11 
 
-安装 maven nodejs
+```sh
+yum install openjdk8 -y
+```
+
+
+
+安装 maven 
+
+安装nodejs
 
 搭建jenkins
 
@@ -499,6 +507,13 @@ node downloadNpmPackage.js
 ```sh
 ./mavenimport.sh -u admin -p 123456 -r http://192.168.1.1:85/repository/maven/
 ```
+
+#### 安装nodejs
+
+```sh
+```
+
+
 
 
 

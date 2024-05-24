@@ -7,9 +7,7 @@ const packageLock = require('./package-lock.json')
 // 指定将依赖下载到当前目录下的npm-dependencies-tgz目录
 const downUrl = './npm-dependencies-tgz'
  
-if (!fs.existsSync(downUrl)) {
-  fs.mkdirSync(downUrl)
-}
+
  
 // 收集依赖的下载路径
 const tgz = []
@@ -22,7 +20,16 @@ let currentTryTime = 0
  
 // 重试次数内仍旧下载失败的链接
 const downloadFailTgz = []
- 
+function mkdirsSync(dirname) {
+  if (fs.existsSync(dirname)) {
+    return true;
+  } else {
+    if (mkdirsSync(path.dirname(dirname))) {
+      fs.mkdirSync(dirname);
+      return true;
+    }
+  }
+}
 for (const pkg in packageLock.packages) {
   if (!packageLock.packages[pkg].resolved) continue
   const tgzUrl = packageLock.packages[pkg].resolved.split('?')[0]
@@ -30,12 +37,18 @@ for (const pkg in packageLock.packages) {
 }
 // 下载依赖
 function doDownload (url) {
+
+  const directory = url.split('/').slice(3,-2).join('/');
+  const downPath = path.join(downUrl, directory)
+  if (!fs.existsSync(downPath)) {
+    mkdirsSync(downPath)
+  }
   const outUrl = url.split('/').pop()
   let outUrl2 = [outUrl]
   if (outUrl.indexOf('?') !== -1) {
     outUrl2 = outUrl.split('?')
   }
-  const outputDir = path.join(downUrl, outUrl2[0])
+  const outputDir = path.join(downPath, outUrl2[0])
   let receivedBytes = 0
   let totalBytes = 0
   const req = request({
