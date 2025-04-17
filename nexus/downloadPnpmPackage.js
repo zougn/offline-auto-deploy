@@ -66,7 +66,7 @@ for (const [pkgKey, pkgInfo] of Object.entries(packages)) {
     // 默认NPM Registry地址
     const scopedName = name.replace(/\//g, '%2f'); // 替换作用域包的斜杠
     const tgzName = `${name.split('/').pop()}-${version}.tgz`;
-    tgzUrl = `https://registry.npmjs.org/${scopedName}/-/${tgzName}`;
+    tgzUrl = `https://registry.npmmirror.com/${scopedName}/-/${tgzName}`;
     }
     tgz.push(tgzUrl)
 }
