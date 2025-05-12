@@ -279,26 +279,22 @@ async function retrieveFile(uri) {
 
 
 /**
- * 主下载流程
+ * lock下载流程
  */
-async function main() {
-  // 解析 package-lock.json
+async function downloadLock(uri) {
 
-  // const lockfile = await retrieveFile('/home/zougn/frontEnd/depTree/packageuri/package.json');
-  const lockfile = await retrieveFile("package-lock.json")
+  const lockfile = await retrieveFile(uri)
 
   //   // 收集所有依赖项
   const dependencies = await collectDependencies(lockfile.packages ?? lockfile.dependencies);
   console.log(`Found ${dependencies.size} packages to download\n`);
   downloadByDeps(dependencies)
-
 }
 
-// 执行主程序
-// main().catch(console.error);
+
 
 
 
 module.exports = {
-  downloadByDeps,retrieveFile
+  downloadByDeps,retrieveFile,downloadLock
 };

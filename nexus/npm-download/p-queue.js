@@ -163,7 +163,7 @@ async function main() {
       console.log(`🌐 唯一下载地址 ${CONFIG.tarballs.size} 个`);
     });
 
-    // downloadByDeps(CONFIG.tarballs)
+    downloadByDeps(CONFIG.tarballs)
   } catch (error) {
     console.error("🔥 主流程错误:", error.message);
     process.exit(1);
