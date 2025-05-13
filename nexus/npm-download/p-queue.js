@@ -7,6 +7,7 @@ const { rimraf } = require("rimraf");
 const axios = require("axios");
 const PQueue = require("p-queue");
 const { downloadByDeps } = require('./npmdownloader');
+const { collectPeerDependenciesBefore } = require('./perr');
 
 // 配置参数
 const CONFIG = {
@@ -69,6 +70,22 @@ async function retrieveAndDeepTree(dep) {
 
   await Promise.all(
     Object.entries(dep).map(async ([name, versionRange]) => {
+      console.log(name,versionRange);
+      if (versionRange.startsWith("npm:")) {
+        const trimmed = versionRange.slice(4).trim();
+        const atIndex = trimmed.lastIndexOf("@");
+        (name = trimmed.substring(0, atIndex)),
+          (versionRange = trimmed.substring(atIndex + 1));
+      }
+      if (versionRange.startsWith("github:")) {
+        const atIndex = versionRange.lastIndexOf("#");
+        if (atIndex != -1) {
+          versionRange = versionRange.substring(atIndex + 1);
+        } else {
+          versionRange = "*";
+        }
+      }
+
       const cacheKey = `${name}${versionRange}`;
       if (CONFIG.cache1.has(cacheKey)) return;
 
@@ -87,7 +104,7 @@ async function retrieveAndDeepTree(dep) {
         const split = url.split("/");
         let filename = split[split.length - 1];
         filename = path.join(details.name, filename);
-        console.log(filename);
+        // console.log(filename);
         
         if (!CONFIG.tarballs.has(key)) {
           CONFIG.tarballs.set(key, {
@@ -154,16 +171,23 @@ async function main() {
     initDirectories();
 
     console.log("⏱️ 开始依赖分析...");
-    await addTask({ "@antv/g6": "^5.0.45" });
+
+    //  await addTask({ "@antv/g6": "^5.0.45" });
+    const  deps = await collectPeerDependenciesBefore()
+    for (const { peerName, version } of deps) {
+      // console.log({[peerName]: version});
+      await addTask({[peerName]: version});
+    }
+
 
     // 监听队列空闲（所有任务完成）
-    queue.onIdle().then(() => {
+    await queue.onIdle().then(() => {
       console.timeEnd("\n✅ 全部任务完成，耗时");
       console.log(`📦 共处理 ${CONFIG.cache2.size} 个包`);
       console.log(`🌐 唯一下载地址 ${CONFIG.tarballs.size} 个`);
     });
 
-    downloadByDeps(CONFIG.tarballs)
+    await downloadByDeps(CONFIG.tarballs)
   } catch (error) {
     console.error("🔥 主流程错误:", error.message);
     process.exit(1);
